@@ -6,7 +6,7 @@
         <libii_id>OPPO</libii_id>
     </channel>
     <channel name="vivo">
-        <appid_suffix>.vivo</appid_suffix>
+        <appid_suffix>.abc</appid_suffix>
         <umeng_id>VIVO</umeng_id>
         <libii_id>VIVO</libii_id>
     </channel>
