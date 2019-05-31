@@ -1,31 +1,31 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
-    <channel name="oppo">
+    <channel name="oppo" tag="cn">
         <appid_suffix>.oppo</appid_suffix>
         <umeng_id>Oppo</umeng_id>
         <libii_id>OPPO</libii_id>
     </channel>
-    <channel name="vivo">
+    <channel name="vivo" tag="cn">
         <appid_suffix>.abc</appid_suffix>
         <umeng_id>VIVO</umeng_id>
         <libii_id>VIVO</libii_id>
     </channel>
-    <channel name="xiaomi">
+    <channel name="xiaomi" tag="cn">
         <appid_suffix>.oppo</appid_suffix>
         <umeng_id>Oppo</umeng_id>
         <libii_id>OPPO</libii_id>
     </channel>
-    <channel name="huawei">
+    <channel name="huawei" tag="huawei">
         <appid_suffix>.oppo</appid_suffix>
         <umeng_id>Oppo</umeng_id>
         <libii_id>OPPO</libii_id>
     </channel>
-    <channel name="huawei_game">
+    <channel name="huawei_game" tag="cn">
         <appid_suffix>.oppo</appid_suffix>
         <umeng_id>Oppo</umeng_id>
         <libii_id>OPPO</libii_id>
     </channel>
-    <channel name="baidu_tencent">
+    <channel name="baidu_tencent" tag="cn">
         <appid_suffix>.oppo</appid_suffix>
         <umeng_id>Oppo</umeng_id>
         <libii_id>OPPO</libii_id>
