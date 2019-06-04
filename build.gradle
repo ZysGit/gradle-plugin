@@ -1,0 +1,279 @@
+import groovy.io.FileType
+
+def uniqueConfigDir = "$rootDir.path${File.separator}..${File.separator}proj.android-resources"
+def uniqueConfig = new XmlParser().parse("$uniqueConfigDir${File.separator}unique_build_config.xml")
+def channelList = "https://raw.githubusercontent.com/ZysGit/gradle-plugin/master/channel_test.xml"
+def commonConfig = new XmlParser().parse(channelList)
+def buildConfig = uniqueConfig.build_config
+
+def gametype = buildConfig.gameType
+def isCocos = gametype == "cocos"
+def currentChannel = confirmChannel()
+def abi_filter = buildConfig.abiFilters.text()
+def hcg = buildConfig.hcg.text().toBoolean()
+def debug = buildConfig.debug.text().toBoolean()
+def v1Sign = buildConfig.v1Sign.text().toBoolean()
+def outputPath = buildConfig.outputPath.text() ? buildConfig.outputPath.text() : "$rootDir.path${File.separator}..${File.separator}apk"
+
+
+def cmCf = commonConfig.channel.find { cf ->
+    currentChannel == cf.@name
+}
+//发布版本注释此项
+//apply plugin: 'com.android.application'
+android {
+    compileSdkVersion 28
+
+    packagingOptions {
+        doNotStrip '*/armeabi/*.so'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/rxjava.properties'
+    }
+
+    defaultConfig { app ->
+        //unique config
+        app.setMinSdkVersion(buildConfig.minSdkVersion.text())
+        app.setTargetSdkVersion(buildConfig.targetSdkVersion.text())
+        app.setApplicationId(buildConfig.packageName.text())
+        app.setVersionName(buildConfig.versionName.text())
+        app.setVersionCode(buildConfig.versionCode.text() as int)
+
+        resValue("string", "build_time", "${System.currentTimeMillis()}")
+        //common config
+        if (cmCf == null) {
+            throw new Exception("the specified channel ($currentChannel) configuration was not found.")
+        }
+
+        app.manifestPlaceholders.put("UMENG_CHANNEL", cmCf.umeng_id.text())
+        app.manifestPlaceholders.put("LIBII_CHANNEL", cmCf.libii_id.text())
+        app.applicationIdSuffix = cmCf.appid_suffix.text()
+
+        //ndk config
+        String[] abis = null
+        if (!abi_filter.isEmpty()) {
+            abis = abi_filter.split(",")
+
+        }
+        if (isCocos)
+            externalNativeBuild({
+                it.ndkBuild.cppFlags debug ? "-DCOCOS2D_DEBUG=1" : "-DNDEBUG"
+                if (abis != null && abis.length > 0) {
+                    it.ndkBuild.abiFilters(abis)
+                } else {
+                    abiFilter('armeabi-v7a')
+                    if (currentChannel == 'google') {
+                        abiFilter("arm64-v8a")
+                    }
+
+                }
+            })
+
+        ndk {
+            if (abis != null && abis.length > 0) {
+                abiFilters(abis)
+            } else {
+                abiFilters('armeabi-v7a'/*发布版本注释此项 ,'x86', 'x86_64'*/)
+                if (currentChannel == 'google') {
+                    abiFilter("arm64-v8a")
+                }
+            }
+        }
+    }
+
+    if (isCocos) {
+        externalNativeBuild {
+            ndkBuild {
+                path "jni/Android.mk"
+            }
+        }
+    }
+
+    signingConfigs {
+        def keystoreFile = file(buildConfig.keystore.text())
+        def aliasNodes = buildConfig.keystore_alias
+        // 默认为包名第三个元素
+
+        def alias = buildConfig.packageName.text().split("\\.")[2].toLowerCase()
+        if (!aliasNodes.isEmpty()) {
+            alias = aliasNodes.text()
+        }
+        def passwordNodes = buildConfig.keystore_password
+        //默认为 libiiredcarpet
+        def password = "libiiredcarpet"
+        if (!passwordNodes.isEmpty()) {
+            password = passwordNodes.text()
+        }
+
+        release {
+            storeFile keystoreFile
+            keyAlias alias
+            keyPassword password
+            storePassword password
+        }
+        release_v1 {
+            storeFile keystoreFile
+            keyAlias alias
+            keyPassword password
+            storePassword password
+            v1SigningEnabled = true
+            v2SigningEnabled = false
+        }
+    }
+    //build types
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        release_v1 {
+            signingConfig signingConfigs.release_v1
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    //flavor config
+    flavorDimensions("channel")
+    productFlavors {
+        //国内通用
+        cn {
+            resValue("string", "app_name", uniqueConfig.build_config.appNmaeCN.text())
+            if (isCocos)
+                externalNativeBuild({
+                    it.ndkBuild.cppFlags "-DAPP_TARGET=2", "-DCHINA_STORE=1", "-DAPP_LANG_CN=1"
+                })
+        }
+        //华为内购渠道
+        huawei {
+            resValue("string", "app_name", uniqueConfig.build_config.appNmaeCN.text())
+            if (isCocos)
+                externalNativeBuild({ it.ndkBuild.cppFlags "-DAPP_TARGET=2", "-DHUAWEI_STORE=1" })
+        }
+        //国外通用
+        en {
+            resValue("string", "app_name", uniqueConfig.build_config.appNmaeEN.text())
+            if (isCocos)
+                externalNativeBuild({ it.ndkBuild.cppFlags "-DAPP_TARGET=2", "-DAPP_LANG_AUTO=1" })
+        }
+        //亚马逊
+        amazon {
+            resValue("string", "app_name", uniqueConfig.build_config.appNmaeEN.text())
+            if (isCocos)
+                externalNativeBuild({ it.ndkBuild.cppFlags "-DAPP_TARGET=1", "-DAPP_LANG_AUTO=1" })
+        }
+    }
+    //variants 过滤
+    variantFilter { var ->
+        if (var.buildType.debuggable) {
+            //var.ignore = true
+        } else if (var.buildType.name == buildTypes.getByName("release_v1").name) {
+            var.ignore = !v1Sign
+        }
+    }
+    //apk输出
+    applicationVariants.all { val ->
+        val.outputs.all { out ->
+            //重命名
+            outputFileName =
+                    "${val.applicationId.split("\\.")[2]}-" +
+                            "${currentChannel}-" +
+                            "${new Date().format("yy_MMdd", TimeZone.getTimeZone("GMT+8"))}-" +
+                            "v${val.versionName}.apk"
+            //拷贝
+            val.assembleProvider.get().doLast {
+                copy {
+                    from out.outputFile
+                    into outputPath
+                }
+            }
+        }
+    }
+}
+repositories {
+    maven {
+        url "http://192.168.0.250:8081/repository/maven-public/"
+        it.credentials {
+            username 'user_package'
+            password 'libii123456'
+        }
+    }
+}
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // add common dependency.
+}
+//依赖配置
+def clDependency = cmCf.dependency
+if (clDependency != null) {
+    clDependency.each {
+        String artifact = it.text()
+        if (!artifact.isBlank()) {
+            dependencies.add("implementation", dependencies.create(artifact))
+        }
+    }
+}
+//makeFile文件配置
+afterEvaluate {
+    def placeHolder = "#{other LOCAL_C_INCLUDES placeholder}"
+    File makeFile = file("jni\\Android.mk")
+    File classesPath = file("..\\Classes")
+    String mkContent = makeFile.text
+    if (mkContent.contains(placeHolder)) {
+        StringBuilder cIncludeStr = new StringBuilder()
+        classesPath.eachDirRecurse {
+            def relativePath = makeFile.relativePath(it)
+            cIncludeStr.append("LOCAL_C_INCLUDES += \$(LOCAL_PATH)/$relativePath")
+            cIncludeStr.append("\n")
+        }
+        makeFile.write(mkContent.replace("#{other LOCAL_C_INCLUDES placeholder}", cIncludeStr.toString()), "UTF-8")
+    } else {
+        println "--- warning: android.mk not include placeholder."
+    }
+}
+
+String confirmChannel() {
+    def packerBuildFile = new File("$rootDir.path${File.separator}packer")
+    if (!packerBuildFile.exists()) {
+        throw new Exception("The packer directory is not yet generated, please use the packer command.")
+    }
+    if (!packerBuildFile.isDirectory()) {
+        throw new Exception("The packer directory is not directory, please use the packer command.")
+    }
+    def matchFileCount = 0
+    def channel = null
+
+    packerBuildFile.eachFileMatch(FileType.FILES, ~/.*\.channel/) {
+        matchFileCount++
+        channel = it.name.replace(".channel", "")
+    }
+
+    if (matchFileCount > 1) {
+        logger.warn("warning: Multiple packer channel files are matched ")
+    }
+
+    if (channel != null) {
+        return channel
+    } else {
+        throw new Exception("The packer channel file is not found.")
+    }
+}
+
+
+//def androidBuildPluginVersion
+//def dependencySet = rootProject.buildscript.configurations.classpath.resolvedConfiguration.firstLevelModuleDependencies
+//dependencySet.forEach() {
+//    if (it.moduleGroup.equals("com.android.tools.build")) {
+//        String[] version = it.moduleVersion.split("\\.")
+//        androidBuildPluginVersion = Integer.parseInt(version[0])
+//    }
+//}
+//--------------------------------------------------------------------------------------------------
+dependencies {
+    implementation 'com.android.support:appcompat-v7:28.0.0'
+}
+
