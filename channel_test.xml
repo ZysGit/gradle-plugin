@@ -9,9 +9,9 @@
         <appid_suffix>.abc</appid_suffix>
         <umeng_id>VIVO</umeng_id>
         <libii_id>VIVO</libii_id>
-		<dependency>com.zys.a:b:1.0.0</dependency>
-		<dependency>com.zys.c:b:1.0.0</dependency>
-		<dependency>com.zys.d:b:1.0.0</dependency>
+        <dependency>com.zys.a:b:1.0.0</dependency>
+        <dependency>com.zys.c:b:1.0.0</dependency>
+        <dependency>com.zys.d:b:1.0.0</dependency>
     </channel>
     <channel name="xiaomi" tag="cn">
         <appid_suffix>.oppo</appid_suffix>
