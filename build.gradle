@@ -170,7 +170,8 @@ android {
     //variants 过滤
     variantFilter { var ->
         if (var.buildType.debuggable) {
-            //var.ignore = true
+            //调试版本打开此项
+            var.ignore = true
         } else if (var.buildType.name == buildTypes.getByName("release_v1").name) {
             var.ignore = !v1Sign
         }
@@ -217,22 +218,24 @@ if (clDependency != null) {
         }
     }
 }
-//makeFile文件配置
-afterEvaluate {
-    def placeHolder = "#{other LOCAL_C_INCLUDES placeholder}"
-    File makeFile = file("jni\\Android.mk")
-    File classesPath = file("..\\Classes")
-    String mkContent = makeFile.text
-    if (mkContent.contains(placeHolder)) {
-        StringBuilder cIncludeStr = new StringBuilder()
-        classesPath.eachDirRecurse {
-            def relativePath = makeFile.relativePath(it)
-            cIncludeStr.append("LOCAL_C_INCLUDES += \$(LOCAL_PATH)/$relativePath")
-            cIncludeStr.append("\n")
+if (isCocos) {
+    //makeFile文件配置
+    afterEvaluate {
+        def placeHolder = "#{other LOCAL_C_INCLUDES placeholder}"
+        File makeFile = file("jni\\Android.mk")
+        File classesPath = file("..\\Classes")
+        String mkContent = makeFile.text
+        if (mkContent.contains(placeHolder)) {
+            StringBuilder cIncludeStr = new StringBuilder()
+            classesPath.eachDirRecurse {
+                def relativePath = makeFile.relativePath(it)
+                cIncludeStr.append("LOCAL_C_INCLUDES += \$(LOCAL_PATH)/$relativePath")
+                cIncludeStr.append("\n")
+            }
+            makeFile.write(mkContent.replace("#{other LOCAL_C_INCLUDES placeholder}", cIncludeStr.toString()), "UTF-8")
+        } else {
+            println "--- warning: android.mk not include placeholder."
         }
-        makeFile.write(mkContent.replace("#{other LOCAL_C_INCLUDES placeholder}", cIncludeStr.toString()), "UTF-8")
-    } else {
-        println "--- warning: android.mk not include placeholder."
     }
 }
 
